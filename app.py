@@ -1,10 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, session
+from flask import Flask, render_template, request, redirect
 import csv
 
 app = Flask(__name__)
-app.secret_key = "secret123"
 
-users = {"admin": "admin"}   # simple in-memory users
 
 
 def load_jobs():
@@ -15,56 +13,34 @@ def load_jobs():
     return jobs
 
 
-@app.route("/login", methods=["GET", "POST"])
-def login():
-    error = None
-    if request.method == "POST":
-        u = request.form["username"]
-        p = request.form["password"]
-
-        if u in users and users[u] == p:
-            session["user"] = u
-            return redirect("/")
-        else:
-            error = "Invalid credentials"
-    return render_template("login.html", error=error)
+@app.route("/") 
+def home(): 
+    return render_template("index.html")
 
 
 @app.route("/signup", methods=["GET", "POST"])
 def signup():
-    error = None
     if request.method == "POST":
-        u = request.form["username"]
-        p = request.form["password"]
+        # Login/authentication has been removed.
+        # Keep the signup page available and return to the home page after submission.
+        return redirect("/")
 
-        if u in users:
-            error = "User already exists"
-        else:
-            users[u] = p
-            return redirect("/login")
-
-    return render_template("signup.html", error=error)
+    return render_template("signup.html", error=None)
 
 
 @app.route("/logout")
 def logout():
-    session.clear()
-    return redirect("/login")
+    return redirect("/")
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods= ["GET", "POST"])
 def index():
-    if "user" not in session:
-        return redirect("/login")
-
     if request.method == "POST":
-        session["search_count"] = session.get("search_count", 0) + 1
-
         recommended = []
 
-        user_skills = request.form["skills"].lower().split(",")
-        user_location = request.form["location"].lower()
-        user_domain = request.form["interest"].lower()
+        user_skills = request.form.get("skills", "").lower().split(",")
+        user_location = request.form.get("location", "").lower()
+        user_domain = request.form.get("interest", "").lower()
 
         resume = request.files.get("resume")
         extracted_skills = []
@@ -76,7 +52,7 @@ def index():
                 if skill in content:
                     extracted_skills.append(skill)
 
-        # merge manual + resume skills
+        # Merge manual + resume skills
         user_skills = list(set(user_skills + extracted_skills))
 
         for job in load_jobs():
@@ -87,10 +63,10 @@ def index():
                 if skill.strip() in job_skills:
                     score += 2
 
-            if user_location in job["location"].lower():
+            if user_location and user_location in job["location"].lower():
                 score += 3
 
-            if user_domain in job["domain"].lower():
+            if user_domain and user_domain in job["domain"].lower():
                 score += 2
 
             if score > 0:
@@ -102,6 +78,7 @@ def index():
         return render_template("results.html", jobs=recommended)
 
     return render_template("index.html")
+
 
 @app.route("/job/<int:job_id>")
 def job_detail(job_id):
